@@ -932,6 +932,7 @@ Item {
                                             animateSize: false
                                             layoutSlot: specialWorkspaceTile.layoutSlots?.[address] ?? null
                                             z: root.specialWindowZ(windowData)
+                                            dragVisualActive: specialDragArea.drag.active
 
                                             function moveToDragLayer() {
                                                 const mapped = specialWindow.mapToItem(specialWindowDragLayer, 0, 0);
@@ -1284,6 +1285,7 @@ Item {
                     }
 
                     z: atInitPosition ? (root.windowZ + index) : root.windowDraggingZ
+                    dragVisualActive: dragArea.drag.active
                     Drag.hotSpot.x: targetWindowWidth / 2
                     Drag.hotSpot.y: targetWindowHeight / 2
                     MouseArea {

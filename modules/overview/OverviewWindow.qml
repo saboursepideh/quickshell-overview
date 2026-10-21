@@ -83,12 +83,28 @@ Item { // Window
     property bool dragInProgress: false
     property bool suspendPositionAnimation: false
     property bool animateSize: true
+    // Set by the owner while the user is actively dragging this preview.
+    property bool dragVisualActive: false
+    property real dragVisualScale: 0.5
+    property real dragVisualOpacity: 0.5
     
     x: initX
     y: initY
     width: Math.min(targetWindowWidth, availableWorkspaceWidth)
     height: Math.min(targetWindowHeight, availableWorkspaceHeight)
-    opacity: (windowData?.monitor ?? -1) == widgetMonitorId ? 1 : Config.options.windowPreview.inactiveMonitorOpacity
+    opacity: dragVisualActive ? dragVisualOpacity
+        : ((windowData?.monitor ?? -1) == widgetMonitorId ? 1 : Config.options.windowPreview.inactiveMonitorOpacity)
+
+    // Shrink around the grab point so the preview stays under the cursor and Drag.hotSpot is unaffected.
+    transform: Scale {
+        origin.x: root.Drag.hotSpot.x
+        origin.y: root.Drag.hotSpot.y
+        xScale: root.dragVisualActive ? root.dragVisualScale : 1
+        yScale: root.dragVisualActive ? root.dragVisualScale : 1
+        Behavior on xScale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+        Behavior on yScale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+    }
+    Behavior on opacity { NumberAnimation { duration: 120 } }
     visible: {
         // Spread previews never overlap, so windows behind a fullscreen/maximized one stay visible.
         if (layoutSlot) return true;
