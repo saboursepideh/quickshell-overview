@@ -57,6 +57,8 @@
     "includeInactiveMonitorPreviews": true,
     "previewRecaptureDelayMs": 60,
     "windowLayout": "natural",
+    "workspaceLayout": "grid",
+    "focusSize": 0.8,
     "showSpecialWorkspaces": true,
     "specialWorkspaces": [],
     "specialWorkspaceColumns": 5,

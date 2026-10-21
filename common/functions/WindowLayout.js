@@ -163,3 +163,41 @@ function computeSlots(rects, areaW, areaH, mode, gap) {
     }
     return slots;
 }
+
+// Workspace cells for the "focus" overview layout: the active workspace large in the middle,
+// the others in side columns (lower ids left, higher ids right) at the monitor's aspect ratio.
+// Returns { cells: { id: { x, y, width, height, scale } }, width, height }.
+function focusCells(ids, activeId, monW, monH, stageMaxW, areaW, areaH, gap) {
+    const cells = {};
+    if (!(monW > 0 && monH > 0) || ids.indexOf(activeId) === -1)
+        return { cells, width: 0, height: 0 };
+
+    const stageScale = Math.max(0.01, Math.min(Math.min(stageMaxW, areaW) / monW, areaH / monH));
+    const stageW = Math.round(monW * stageScale);
+    const stageH = Math.round(monH * stageScale);
+    const left = ids.filter(id => id < activeId).sort((a, b) => a - b);
+    const right = ids.filter(id => id > activeId).sort((a, b) => a - b);
+    const count = Math.max(left.length, right.length);
+
+    let sideScale = 0;
+    if (count > 0) {
+        const sideW = (areaW - stageW) / 2 - gap;
+        sideScale = Math.max(0, Math.min(sideW / monW, (stageH - gap * (count - 1)) / count / monH));
+    }
+    const cellW = Math.round(monW * sideScale);
+    const cellH = Math.round(monH * sideScale);
+    const stageX = cellW > 0 ? cellW + gap : 0;
+
+    cells[activeId] = { x: stageX, y: 0, width: stageW, height: stageH, scale: stageScale };
+    const placeColumn = (list, x) => {
+        const top = (stageH - (list.length * cellH + (list.length - 1) * gap)) / 2;
+        list.forEach((id, i) => {
+            cells[id] = { x, y: Math.round(top + i * (cellH + gap)), width: cellW, height: cellH, scale: sideScale };
+        });
+    };
+    if (cellW > 0) {
+        placeColumn(left, 0);
+        placeColumn(right, stageX + stageW + gap);
+    }
+    return { cells, width: stageX * 2 + stageW, height: stageH };
+}

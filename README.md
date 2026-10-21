@@ -205,6 +205,8 @@ Edit `~/.config/quickshell/overview/config.json`:
     "includeInactiveMonitorPreviews": true,
     "previewRecaptureDelayMs": 60,
     "windowLayout": "natural",
+    "workspaceLayout": "grid",
+    "focusSize": 0.8,
     "showSpecialWorkspaces": true,
     "specialWorkspaces": [],
     "specialWorkspaceColumns": 5,
@@ -241,6 +243,7 @@ Edit `~/.config/quickshell/overview/config.json`:
 - **Lower memory use?** Set `previewMode` to `event` and `includeInactiveMonitorPreviews` to `false`
 - **Transparency / blur?** Tune `overview.effects.*` (details below)
 - **Stacked windows hard to tell apart?** Set `windowLayout` to `rows` or `grid` (details below)
+- **Want the current workspace bigger?** Set `workspaceLayout` to `focus` (details below)
 
 **Hide empty workspace rows:**
 - Set `hideEmptyRows: true` to automatically hide rows that have no windows
@@ -263,6 +266,13 @@ Edit `~/.config/quickshell/overview/config.json`:
 - In a spread workspace, maximized/fullscreen windows are spread too, so windows normally hidden behind them become visible
 - Previews keep their aspect ratio and are never enlarged beyond their natural size
 - Drag and drop works as usual; dropped windows snap into the computed layout
+
+**Focus layout (big current workspace):**
+- `workspaceLayout` defaults to `grid`, which shows every workspace at the same size
+- `focus` shows the current workspace large in the middle, with the other workspaces stacked in columns on either side (lower numbers left, higher numbers right)
+- `focusSize` (default `0.8`) is the current workspace's width as a fraction of the screen width; it shrinks automatically to fit the screen height
+- The special workspace strip and `position.topMargin` take vertical space, so set `showSpecialWorkspaces: false` and/or a smaller `topMargin` to reach the full `focusSize`
+- Switching workspaces while the overview is open (scroll, arrow keys, number keys) animates the new workspace into the middle
 
 ### Position
 
@@ -516,6 +526,8 @@ Low-memory preset:
     "includeInactiveMonitorPreviews": true,
     "previewRecaptureDelayMs": 60,
     "windowLayout": "natural",
+    "workspaceLayout": "grid",
+    "focusSize": 0.8,
     "showSpecialWorkspaces": true,
     "specialWorkspaces": [],
     "specialWorkspaceColumns": 5,

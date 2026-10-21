@@ -120,6 +120,8 @@ Singleton {
             property int previewRecaptureDelayMs: root.readInt("overview.previewRecaptureDelayMs", 60)
             property bool showSpecialWorkspaces: root.readBool("overview.showSpecialWorkspaces", true)
             property string windowLayout: root.readString("overview.windowLayout", "natural")
+            property string workspaceLayout: root.readString("overview.workspaceLayout", "grid")
+            property real focusSize: root.readReal("overview.focusSize", 0.8)
             property var specialWorkspaces: root.read("overview.specialWorkspaces", [])
             property int specialWorkspaceColumns: root.readInt("overview.specialWorkspaceColumns", columns)
             property string emptyWorkspaceWallpaper: root.readString("overview.emptyWorkspaceWallpaper", "")

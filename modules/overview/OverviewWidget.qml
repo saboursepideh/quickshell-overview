@@ -31,12 +31,14 @@ Item {
     property real scale: Config.options.overview.scale
     property color activeBorderColor: Appearance.colors.colSecondary
 
-    property real workspaceImplicitWidth: Math.round((monitorData?.transform % 2 === 1) ?
-        ((monitor.height / monitor.scale - (monitorData?.reserved?.[0] ?? 0) - (monitorData?.reserved?.[2] ?? 0)) * root.scale) :
-        ((monitor.width / monitor.scale - (monitorData?.reserved?.[0] ?? 0) - (monitorData?.reserved?.[2] ?? 0)) * root.scale))
-    property real workspaceImplicitHeight: Math.round((monitorData?.transform % 2 === 1) ?
-        ((monitor.width / monitor.scale - (monitorData?.reserved?.[1] ?? 0) - (monitorData?.reserved?.[3] ?? 0)) * root.scale) :
-        ((monitor.height / monitor.scale - (monitorData?.reserved?.[1] ?? 0) - (monitorData?.reserved?.[3] ?? 0)) * root.scale))
+    readonly property real monitorUsableWidth: (monitorData?.transform % 2 === 1) ?
+        (monitor.height / monitor.scale - (monitorData?.reserved?.[0] ?? 0) - (monitorData?.reserved?.[2] ?? 0)) :
+        (monitor.width / monitor.scale - (monitorData?.reserved?.[0] ?? 0) - (monitorData?.reserved?.[2] ?? 0))
+    readonly property real monitorUsableHeight: (monitorData?.transform % 2 === 1) ?
+        (monitor.width / monitor.scale - (monitorData?.reserved?.[1] ?? 0) - (monitorData?.reserved?.[3] ?? 0)) :
+        (monitor.height / monitor.scale - (monitorData?.reserved?.[1] ?? 0) - (monitorData?.reserved?.[3] ?? 0))
+    property real workspaceImplicitWidth: Math.round(monitorUsableWidth * root.scale)
+    property real workspaceImplicitHeight: Math.round(monitorUsableHeight * root.scale)
 
     property real workspaceNumberMargin: 80
     property real workspaceNumberSize: Config.options.overview.workspaceNumberBaseSize * monitor.scale
@@ -133,7 +135,7 @@ Item {
     readonly property real specialStripTitleHeight: Math.max(14, Appearance.font.pixelSize.small * root.scale)
     readonly property real specialStripTitleGap: Math.max(6, 8 * root.scale)
     readonly property int totalSpecialTiles: visibleSpecialWorkspaces.length + 1
-    readonly property real specialSectionWidth: workspaceColumnLayout.implicitWidth
+    readonly property real specialSectionWidth: root.workspaceAreaWidth
     readonly property real specialGridInnerWidth: Math.max(0, root.specialSectionWidth - root.specialStripPadding * 2)
     readonly property int effectiveSpecialColumns: Math.max(1, Math.min(root.specialWorkspaceColumns, root.totalSpecialTiles))
     readonly property int specialWorkspaceRows: Math.ceil(root.totalSpecialTiles / root.effectiveSpecialColumns)
@@ -158,7 +160,7 @@ Item {
     }
     readonly property real specialGridUsedWidth: root.effectiveSpecialColumns * root.specialWorkspaceTileWidth + Math.max(0, root.effectiveSpecialColumns - 1) * workspaceSpacing
     readonly property real specialGridOffsetX: root.specialStripPadding + Math.max(0, (root.specialGridInnerWidth - root.specialGridUsedWidth) / 2)
-    readonly property real specialStripTop: workspaceColumnLayout.implicitHeight + workspaceSpacing + root.specialStripGap
+    readonly property real specialStripTop: root.workspaceAreaHeight + workspaceSpacing + root.specialStripGap
     readonly property real specialStripTilesTop: root.specialStripTop + root.specialStripPadding + root.specialStripTitleHeight + root.specialStripTitleGap
     readonly property real specialGridHeight: root.specialWorkspaceRows * root.specialWorkspaceTileHeight + Math.max(0, root.specialWorkspaceRows - 1) * workspaceSpacing
     readonly property real specialStripHeight: root.specialStripPadding * 2 + root.specialStripTitleHeight + root.specialStripTitleGap + root.specialGridHeight
@@ -183,6 +185,63 @@ Item {
         const mappedRow = Config.options.overview.orderBottomUp ? (Config.options.overview.rows - rowIndex - 1) : rowIndex;
         const mappedCol = Config.options.overview.orderRightLeft ? (Config.options.overview.columns - colIndex - 1) : colIndex;
         return (workspaceGroup * workspacesShown) + (mappedRow * Config.options.overview.columns) + mappedCol + 1 + workspaceOffset;
+    }
+
+    readonly property bool focusLayout: `${Config.options.overview.workspaceLayout ?? "grid"}`.trim().toLowerCase() === "focus"
+    readonly property real focusSize: Math.max(0.1, Math.min(1, Config.options.overview.focusSize))
+    readonly property var emptyWorkspaceCell: ({ x: 0, y: 0, width: 0, height: 0, scale: 0 })
+
+    function isWorkspaceRowShown(workspaceId) {
+        return !Config.options.overview.hideEmptyRows || !(rowsWithContent instanceof Set)
+            || rowsWithContent.has(getWorkspaceRow(workspaceId));
+    }
+
+    readonly property var shownWorkspaceIds: {
+        const ids = [];
+        for (let row = 0; row < Config.options.overview.rows; row += 1) {
+            for (let col = 0; col < Config.options.overview.columns; col += 1) {
+                const id = getWorkspaceInCell(row, col);
+                if (isWorkspaceRowShown(id))
+                    ids.push(id);
+            }
+        }
+        return ids;
+    }
+
+    readonly property var focusLayoutCells: {
+        if (!root.focusLayout)
+            return ({ cells: {}, width: 0, height: 0 });
+        const screenWidth = root.panelWindow?.width || root.monitorUsableWidth;
+        const screenHeight = root.panelWindow?.height || root.monitorUsableHeight;
+        const chrome = (Appearance.sizes.elevationMargin + Config.options.overview.backgroundPadding) * 2;
+        const specialHeight = root.showSpecialWorkspaces ? (workspaceSpacing * 2 + root.specialStripGap + root.specialStripHeight) : 0;
+        const areaWidth = screenWidth - chrome - Appearance.sizes.elevationMargin * 2;
+        const areaHeight = screenHeight - Config.options.position.topMargin - chrome - Appearance.sizes.elevationMargin - specialHeight;
+        return WindowLayout.focusCells(root.shownWorkspaceIds, root.effectiveActiveWorkspaceId,
+            root.monitorUsableWidth, root.monitorUsableHeight, screenWidth * root.focusSize,
+            areaWidth, areaHeight, workspaceSpacing);
+    }
+
+    readonly property real workspaceAreaWidth: root.focusLayout ? root.focusLayoutCells.width
+        : Config.options.overview.columns * (root.workspaceImplicitWidth + workspaceSpacing) - workspaceSpacing
+    readonly property real workspaceAreaHeight: {
+        if (root.focusLayout)
+            return root.focusLayoutCells.height;
+        const rows = (Config.options.overview.hideEmptyRows && rowsWithContent instanceof Set) ? rowsWithContent.size : Config.options.overview.rows;
+        return Math.max(0, rows * (root.workspaceImplicitHeight + workspaceSpacing) - workspaceSpacing);
+    }
+
+    // { x, y, width, height, scale } of a regular workspace inside the workspace area.
+    function workspaceCell(workspaceId) {
+        if (root.focusLayout)
+            return root.focusLayoutCells.cells[workspaceId] ?? root.emptyWorkspaceCell;
+        return {
+            x: (root.workspaceImplicitWidth + workspaceSpacing) * getWorkspaceColumn(workspaceId),
+            y: (root.workspaceImplicitHeight + workspaceSpacing) * getVisibleRowPosition(getWorkspaceRow(workspaceId)),
+            width: root.workspaceImplicitWidth,
+            height: root.workspaceImplicitHeight,
+            scale: root.scale
+        };
     }
 
     function getVisibleRowPosition(rowIndex) {
@@ -365,6 +424,9 @@ Item {
 
         const slots = {};
         for (const wsId in groups) {
+            const cell = root.workspaceCell(Number(wsId));
+            if (!(cell.width > 0 && cell.height > 0))
+                continue;
             const rects = groups[wsId].map(win => {
                 const monitor = HyprlandData.monitors.find(m => m.id === win?.monitor);
                 const ratio = WindowLayout.geometryRatio(root.monitorData, monitor);
@@ -372,13 +434,13 @@ Item {
                 const baseY = (monitor?.y ?? 0) + (monitor?.reserved?.[1] ?? 0);
                 return {
                     key: win.address,
-                    x: Math.max(((win?.at?.[0] ?? 0) - baseX) * root.scale * ratio.x, 0),
-                    y: Math.max(((win?.at?.[1] ?? 0) - baseY) * root.scale * ratio.y, 0),
-                    width: Math.min((win?.size?.[0] ?? 100) * root.scale * ratio.x, root.workspaceImplicitWidth),
-                    height: Math.min((win?.size?.[1] ?? 100) * root.scale * ratio.y, root.workspaceImplicitHeight)
+                    x: Math.max(((win?.at?.[0] ?? 0) - baseX) * cell.scale * ratio.x, 0),
+                    y: Math.max(((win?.at?.[1] ?? 0) - baseY) * cell.scale * ratio.y, 0),
+                    width: Math.min((win?.size?.[0] ?? 100) * cell.scale * ratio.x, cell.width),
+                    height: Math.min((win?.size?.[1] ?? 100) * cell.scale * ratio.y, cell.height)
                 };
             });
-            Object.assign(slots, root.spreadSlots(rects, root.workspaceImplicitWidth, root.workspaceImplicitHeight) ?? {});
+            Object.assign(slots, root.spreadSlots(rects, cell.width, cell.height) ?? {});
         }
         return slots;
     }
@@ -490,160 +552,170 @@ Item {
             z: root.workspaceZ
             anchors.centerIn: parent
             spacing: workspaceSpacing
-            ColumnLayout {
-                id: workspaceColumnLayout
-                spacing: workspaceSpacing
+            Item {
+                id: workspaceArea
+                implicitWidth: root.workspaceAreaWidth
+                implicitHeight: root.workspaceAreaHeight
 
-                Repeater {
-                    model: Config.options.overview.rows
-                    delegate: RowLayout {
-                    id: row
-                    property int rowIndex: index
-                    spacing: workspaceSpacing
-                    visible: !Config.options.overview.hideEmptyRows ||
-                             (root.rowsWithContent && root.rowsWithContent.has(rowIndex))
-                    height: visible ? implicitHeight : 0
+                Repeater { // Workspace repeater
+                    model: root.workspacesShown
+                    Rectangle { // Workspace
+                        id: workspace
+                        property int rowIndex: Math.floor(index / Config.options.overview.columns)
+                        property int colIndex: index % Config.options.overview.columns
+                        property int workspaceValue: root.getWorkspaceInCell(rowIndex, colIndex)
+                        property bool showWallpaper: root.hasEmptyWorkspaceWallpaper
+                        property color defaultWorkspaceColor: Appearance.colors.colLayer1
+                        property color hoveredWorkspaceColor: ColorUtils.mix(defaultWorkspaceColor, Appearance.colors.colLayer1Hover, 0.1)
+                        property color hoveredBorderColor: Appearance.colors.colLayer2Hover
+                        property bool hoveredWhileDragging: false
+                        property var cell: root.workspaceCell(workspaceValue)
 
-                    Repeater { // Workspace repeater
-                        model: Config.options.overview.columns
-                        Rectangle { // Workspace
-                            id: workspace
-                            property int colIndex: index
-                            property int workspaceValue: root.getWorkspaceInCell(rowIndex, colIndex)
-                            property bool showWallpaper: root.hasEmptyWorkspaceWallpaper
-                            property color defaultWorkspaceColor: Appearance.colors.colLayer1
-                            property color hoveredWorkspaceColor: ColorUtils.mix(defaultWorkspaceColor, Appearance.colors.colLayer1Hover, 0.1)
-                            property color hoveredBorderColor: Appearance.colors.colLayer2Hover
-                            property bool hoveredWhileDragging: false
+                        visible: root.isWorkspaceRowShown(workspaceValue) && cell.width > 0
+                        x: cell.x
+                        y: cell.y
+                        width: cell.width
+                        height: cell.height
+                        Behavior on x {
+                            enabled: root.focusLayout
+                            animation: Appearance.animation.elementMoveEnter.numberAnimation.createObject(this)
+                        }
+                        Behavior on y {
+                            enabled: root.focusLayout
+                            animation: Appearance.animation.elementMoveEnter.numberAnimation.createObject(this)
+                        }
+                        Behavior on width {
+                            enabled: root.focusLayout
+                            animation: Appearance.animation.elementMoveEnter.numberAnimation.createObject(this)
+                        }
+                        Behavior on height {
+                            enabled: root.focusLayout
+                            animation: Appearance.animation.elementMoveEnter.numberAnimation.createObject(this)
+                        }
+                        color: showWallpaper ? "transparent" : ColorUtils.applyAlpha(
+                            root.glassMode
+                                ? ColorUtils.mix(hoveredWhileDragging ? hoveredWorkspaceColor : defaultWorkspaceColor, Appearance.colors.colLayer0, 0.46)
+                                : (hoveredWhileDragging ? hoveredWorkspaceColor : defaultWorkspaceColor),
+                            root.effectiveWorkspaceOpacity
+                        )
+                        radius: Appearance.rounding.screenRounding * cell.scale
+                        border.width: 2
+                        border.color: hoveredWhileDragging
+                            ? ColorUtils.applyAlpha(hoveredBorderColor, root.glassMode ? root.glassBorderOpacity : 1)
+                            : "transparent"
 
-                            implicitWidth: root.workspaceImplicitWidth
-                            implicitHeight: root.workspaceImplicitHeight
-                            color: showWallpaper ? "transparent" : ColorUtils.applyAlpha(
+                        Image {
+                            id: workspaceWallpaper
+                            visible: workspace.showWallpaper
+                            anchors.fill: parent
+                            source: root.wallpaperSource(root.emptyWorkspaceWallpaperPath)
+                            fillMode: Image.PreserveAspectCrop
+                            asynchronous: true
+                            cache: true
+                            smooth: true
+                            mipmap: true
+                            layer.enabled: workspace.showWallpaper
+                            layer.smooth: true
+                            layer.effect: MultiEffect {
+                                maskEnabled: true
+                                maskSource: workspaceWallpaperMask
+                                maskThresholdMin: 0.5
+                                maskSpreadAtMin: 1.0
+                            }
+                        }
+
+                        Item {
+                            id: workspaceWallpaperMask
+                            anchors.fill: parent
+                            visible: false
+                            layer.enabled: true
+                            layer.smooth: true
+                            Rectangle {
+                                anchors.fill: parent
+                                radius: workspace.radius
+                            }
+                        }
+
+                        Rectangle {
+                            visible: workspace.showWallpaper
+                            anchors.fill: parent
+                            radius: parent.radius
+                            color: ColorUtils.applyAlpha(
                                 root.glassMode
-                                    ? ColorUtils.mix(hoveredWhileDragging ? hoveredWorkspaceColor : defaultWorkspaceColor, Appearance.colors.colLayer0, 0.46)
-                                    : (hoveredWhileDragging ? hoveredWorkspaceColor : defaultWorkspaceColor),
-                                root.effectiveWorkspaceOpacity
+                                    ? ColorUtils.mix(workspace.hoveredWhileDragging ? workspace.hoveredWorkspaceColor : workspace.defaultWorkspaceColor, Appearance.colors.colLayer0, 0.40)
+                                    : (workspace.hoveredWhileDragging ? workspace.hoveredWorkspaceColor : workspace.defaultWorkspaceColor),
+                                workspace.hoveredWhileDragging
+                                    ? Math.min(0.28, root.emptyWorkspaceWallpaperOverlayOpacity + 0.08)
+                                    : root.emptyWorkspaceWallpaperOverlayOpacity
                             )
-                            radius: Appearance.rounding.screenRounding * root.scale
-                            border.width: 2
-                            border.color: hoveredWhileDragging
-                                ? ColorUtils.applyAlpha(hoveredBorderColor, root.glassMode ? root.glassBorderOpacity : 1)
-                                : "transparent"
+                        }
 
-                            Image {
-                                id: workspaceWallpaper
-                                visible: workspace.showWallpaper
-                                anchors.fill: parent
-                                source: root.wallpaperSource(root.emptyWorkspaceWallpaperPath)
-                                fillMode: Image.PreserveAspectCrop
-                                asynchronous: true
-                                cache: true
-                                smooth: true
-                                mipmap: true
-                                layer.enabled: workspace.showWallpaper
-                                layer.smooth: true
-                                layer.effect: MultiEffect {
-                                    maskEnabled: true
-                                    maskSource: workspaceWallpaperMask
-                                    maskThresholdMin: 0.5
-                                    maskSpreadAtMin: 1.0
-                                }
+                        Rectangle {
+                            visible: root.glassMode
+                            anchors.fill: parent
+                            radius: parent.radius
+                            color: "transparent"
+                            gradient: Gradient {
+                                GradientStop { position: 0.0; color: ColorUtils.applyAlpha("#FFFFFF", root.glassShineOpacity * 0.22) }
+                                GradientStop { position: 0.46; color: ColorUtils.applyAlpha("#FFFFFF", 0.0) }
+                                GradientStop { position: 1.0; color: ColorUtils.applyAlpha("#000000", root.glassShineOpacity * 0.14) }
                             }
+                        }
 
-                            Item {
-                                id: workspaceWallpaperMask
-                                anchors.fill: parent
-                                visible: false
-                                layer.enabled: true
-                                layer.smooth: true
-                                Rectangle {
-                                    anchors.fill: parent
-                                    radius: workspace.radius
-                                }
+                        Rectangle {
+                            visible: root.glassMode
+                            anchors.fill: parent
+                            anchors.margins: 1
+                            radius: Math.max(parent.radius - 1, 0)
+                            color: "transparent"
+                            border.width: 1
+                            border.color: ColorUtils.applyAlpha("#FFFFFF", root.glassBorderOpacity * 0.16)
+                        }
+
+                        StyledText {
+                            anchors.centerIn: parent
+                            visible: !workspace.showWallpaper
+                            text: workspaceValue
+                            font {
+                                pixelSize: root.workspaceNumberSize * workspace.cell.scale
+                                weight: Font.DemiBold
+                                family: Appearance.font.family.expressive
                             }
+                            color: ColorUtils.transparentize(Appearance.colors.colOnLayer1, 0.8)
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
 
-                            Rectangle {
-                                visible: workspace.showWallpaper
-                                anchors.fill: parent
-                                radius: parent.radius
-                                color: ColorUtils.applyAlpha(
-                                    root.glassMode
-                                        ? ColorUtils.mix(workspace.hoveredWhileDragging ? workspace.hoveredWorkspaceColor : workspace.defaultWorkspaceColor, Appearance.colors.colLayer0, 0.40)
-                                        : (workspace.hoveredWhileDragging ? workspace.hoveredWorkspaceColor : workspace.defaultWorkspaceColor),
-                                    workspace.hoveredWhileDragging
-                                        ? Math.min(0.28, root.emptyWorkspaceWallpaperOverlayOpacity + 0.08)
-                                        : root.emptyWorkspaceWallpaperOverlayOpacity
-                                )
-                            }
-
-                            Rectangle {
-                                visible: root.glassMode
-                                anchors.fill: parent
-                                radius: parent.radius
-                                color: "transparent"
-                                gradient: Gradient {
-                                    GradientStop { position: 0.0; color: ColorUtils.applyAlpha("#FFFFFF", root.glassShineOpacity * 0.22) }
-                                    GradientStop { position: 0.46; color: ColorUtils.applyAlpha("#FFFFFF", 0.0) }
-                                    GradientStop { position: 1.0; color: ColorUtils.applyAlpha("#000000", root.glassShineOpacity * 0.14) }
-                                }
-                            }
-
-                            Rectangle {
-                                visible: root.glassMode
-                                anchors.fill: parent
-                                anchors.margins: 1
-                                radius: Math.max(parent.radius - 1, 0)
-                                color: "transparent"
-                                border.width: 1
-                                border.color: ColorUtils.applyAlpha("#FFFFFF", root.glassBorderOpacity * 0.16)
-                            }
-
-                            StyledText {
-                                anchors.centerIn: parent
-                                visible: !workspace.showWallpaper
-                                text: workspaceValue
-                                font {
-                                    pixelSize: root.workspaceNumberSize * root.scale
-                                    weight: Font.DemiBold
-                                    family: Appearance.font.family.expressive
-                                }
-                                color: ColorUtils.transparentize(Appearance.colors.colOnLayer1, 0.8)
-                                horizontalAlignment: Text.AlignHCenter
-                                verticalAlignment: Text.AlignVCenter
-                            }
-
-                            MouseArea {
-                                id: workspaceArea
-                                anchors.fill: parent
-                                acceptedButtons: Qt.LeftButton
-                                onClicked: {
-                                    if (root.draggingTargetWorkspace === -1) {
-                                        GlobalStates.overviewOpen = false
-                                        if (Hyprland.usingLua) {
-                                            Hyprland.dispatch(`hl.dsp.focus({workspace = '${workspaceValue}'})`);
-                                        } else {
-                                            Hyprland.dispatch(`workspace ${workspaceValue}`)
-                                        }
+                        MouseArea {
+                            id: workspaceArea
+                            anchors.fill: parent
+                            acceptedButtons: Qt.LeftButton
+                            onClicked: {
+                                if (root.draggingTargetWorkspace === -1) {
+                                    GlobalStates.overviewOpen = false
+                                    if (Hyprland.usingLua) {
+                                        Hyprland.dispatch(`hl.dsp.focus({workspace = '${workspaceValue}'})`);
+                                    } else {
+                                        Hyprland.dispatch(`workspace ${workspaceValue}`)
                                     }
                                 }
                             }
-
-                            DropArea {
-                                anchors.fill: parent
-                                onEntered: {
-                                    root.draggingTargetWorkspace = workspaceValue
-                                    root.draggingTargetSpecialWorkspace = ""
-                                    if (root.draggingFromWorkspace == root.draggingTargetWorkspace) return;
-                                    hoveredWhileDragging = true
-                                }
-                                onExited: {
-                                    hoveredWhileDragging = false
-                                    if (root.draggingTargetWorkspace == workspaceValue) root.draggingTargetWorkspace = -1
-                                }
-                            }
-
                         }
-                    }
+
+                        DropArea {
+                            anchors.fill: parent
+                            onEntered: {
+                                root.draggingTargetWorkspace = workspaceValue
+                                root.draggingTargetSpecialWorkspace = ""
+                                if (root.draggingFromWorkspace == root.draggingTargetWorkspace) return;
+                                hoveredWhileDragging = true
+                            }
+                            onExited: {
+                                hoveredWhileDragging = false
+                                if (root.draggingTargetWorkspace == workspaceValue) root.draggingTargetWorkspace = -1
+                            }
+                        }
+
                     }
                 }
             }
@@ -1135,20 +1207,18 @@ Item {
                     toplevel: modelData
                     monitorData: monitor
                     widgetMonitorData: root.monitorData
-                    scale: root.scale
-                    availableWorkspaceWidth: root.workspaceImplicitWidth
-                    availableWorkspaceHeight: root.workspaceImplicitHeight
+                    property var cell: root.workspaceCell(windowData?.workspace?.id)
+                    scale: cell.scale
+                    availableWorkspaceWidth: cell.width
+                    availableWorkspaceHeight: cell.height
                     widgetMonitorId: root.monitor.id
                     recaptureToken: root.previewRecaptureToken
                     layoutSlot: root.workspaceLayoutSlots[address] ?? null
 
                     property bool atInitPosition: (initX == x && initY == y)
 
-                    property int workspaceColIndex: root.getWorkspaceColumn(windowData?.workspace.id)
-                    property int workspaceRowIndex: root.getWorkspaceRow(windowData?.workspace.id)
-                    property int visibleWorkspaceRowIndex: root.getVisibleRowPosition(workspaceRowIndex)
-                    xOffset: (root.workspaceImplicitWidth + workspaceSpacing) * workspaceColIndex
-                    yOffset: (root.workspaceImplicitHeight + workspaceSpacing) * visibleWorkspaceRowIndex
+                    xOffset: cell.x
+                    yOffset: cell.y
 
                     function snapToInitPosition() {
                         window.x = Qt.binding(() => window.initX)
@@ -1255,16 +1325,14 @@ Item {
 
             Rectangle { // Focused workspace indicator
                 id: focusedWorkspaceIndicator
-                property int activeWorkspaceRowIndex: root.getWorkspaceRow(root.effectiveActiveWorkspaceId)
-                property int visibleActiveWorkspaceRowIndex: root.getVisibleRowPosition(activeWorkspaceRowIndex)
-                property int activeWorkspaceColIndex: root.getWorkspaceColumn(root.effectiveActiveWorkspaceId)
-                x: (root.workspaceImplicitWidth + workspaceSpacing) * activeWorkspaceColIndex
-                y: (root.workspaceImplicitHeight + workspaceSpacing) * visibleActiveWorkspaceRowIndex
+                property var cell: root.workspaceCell(root.effectiveActiveWorkspaceId)
+                x: cell.x
+                y: cell.y
                 z: root.windowDraggingZ - 1
-                width: root.workspaceImplicitWidth
-                height: root.workspaceImplicitHeight
+                width: cell.width
+                height: cell.height
                 color: "transparent"
-                radius: Appearance.rounding.screenRounding * root.scale
+                radius: Appearance.rounding.screenRounding * cell.scale
                 border.width: 2
                 border.color: root.activeBorderColor
                 Behavior on x {
