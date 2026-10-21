@@ -5,6 +5,7 @@ import Quickshell
 import Quickshell.Wayland
 import "../../common"
 import "../../common/functions"
+import "../../common/functions/WindowLayout.js" as WindowLayout
 import "../../services"
 
 Item { // Window
@@ -20,36 +21,21 @@ Item { // Window
     property real positionBaseY: (monitorData?.y ?? 0) + (monitorData?.reserved?.[1] ?? 0)
     property int recaptureToken: 0
     property bool restrictToWorkspace: true
-    property real widthRatio: {
-        if (!widgetMonitorData || !monitorData)
-            return 1;
-
-        const widgetWidth = (widgetMonitorData.transform % 2 === 1) ? (widgetMonitorData.height ?? 1) : (widgetMonitorData.width ?? 1);
-        const sourceWidth = (monitorData.transform % 2 === 1) ? (monitorData.height ?? 1) : (monitorData.width ?? 1);
-        const sourceScale = monitorData.scale ?? 1;
-        const widgetScale = widgetMonitorData.scale ?? 1;
-        return (widgetWidth * sourceScale) / (sourceWidth * widgetScale);
-    }
-    property real heightRatio: {
-        if (!widgetMonitorData || !monitorData)
-            return 1;
-
-        const widgetHeight = (widgetMonitorData.transform % 2 === 1) ? (widgetMonitorData.width ?? 1) : (widgetMonitorData.height ?? 1);
-        const sourceHeight = (monitorData.transform % 2 === 1) ? (monitorData.width ?? 1) : (monitorData.height ?? 1);
-        const sourceScale = monitorData.scale ?? 1;
-        const widgetScale = widgetMonitorData.scale ?? 1;
-        return (widgetHeight * sourceScale) / (sourceHeight * widgetScale);
-    }
-    property real initX: Math.max(((windowData?.at[0] ?? 0) - positionBaseX) * root.scale * geometryScaleX, 0) + xOffset
-    property real initY: Math.max(((windowData?.at[1] ?? 0) - positionBaseY) * root.scale * geometryScaleY, 0) + yOffset
+    property var monitorRatio: WindowLayout.geometryRatio(widgetMonitorData, monitorData)
+    property real widthRatio: monitorRatio.x
+    property real heightRatio: monitorRatio.y
+    // Cell-local { x, y, width, height } from a spread layout; null keeps the natural position.
+    property var layoutSlot: null
+    property real initX: layoutSlot ? (layoutSlot.x + xOffset) : (Math.max(((windowData?.at[0] ?? 0) - positionBaseX) * root.scale * geometryScaleX, 0) + xOffset)
+    property real initY: layoutSlot ? (layoutSlot.y + yOffset) : (Math.max(((windowData?.at[1] ?? 0) - positionBaseY) * root.scale * geometryScaleY, 0) + yOffset)
     property real xOffset: 0
     property real yOffset: 0
     property int widgetMonitorId: 0
     property real geometryScaleX: widthRatio
     property real geometryScaleY: heightRatio
     
-    property var targetWindowWidth: (windowData?.size[0] ?? 100) * scale * geometryScaleX
-    property var targetWindowHeight: (windowData?.size[1] ?? 100) * scale * geometryScaleY
+    property var targetWindowWidth: layoutSlot ? layoutSlot.width : (windowData?.size[0] ?? 100) * scale * geometryScaleX
+    property var targetWindowHeight: layoutSlot ? layoutSlot.height : (windowData?.size[1] ?? 100) * scale * geometryScaleY
     property bool hovered: false
     property bool pressed: false
 

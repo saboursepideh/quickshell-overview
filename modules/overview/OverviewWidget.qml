@@ -6,6 +6,7 @@ import Quickshell.Wayland
 import Quickshell.Hyprland
 import "../../common"
 import "../../common/functions"
+import "../../common/functions/WindowLayout.js" as WindowLayout
 import "../../common/widgets"
 import "../../services"
 import "."
@@ -43,6 +44,8 @@ Item {
     property int windowZ: 1
     property int windowDraggingZ: 99999
     property real workspaceSpacing: Config.options.overview.workspaceSpacing
+    readonly property string windowLayoutMode: WindowLayout.normalizeMode(Config.options.overview.windowLayout)
+    readonly property real windowLayoutGap: Math.max(2, workspaceSpacing)
     property string emptyWorkspaceWallpaperPath: Config.options.overview.emptyWorkspaceWallpaper
     property string specialEmptyWorkspaceWallpaperPath: Config.options.overview.specialEmptyWorkspaceWallpaper
     property bool showSpecialWorkspaces: Config.options.overview.showSpecialWorkspaces
@@ -328,6 +331,59 @@ Item {
             width: (minX !== null && maxX !== null) ? Math.max(1, maxX - minX) : null,
             height: (minY !== null && maxY !== null) ? Math.max(1, maxY - minY) : null
         };
+    }
+
+    function toplevelAddressSet() {
+        return new Set(ToplevelManager.toplevels.values.map(toplevel => `0x${toplevel.HyprlandToplevel.address}`));
+    }
+
+    // Spread-layout slots for one group of windows, or null when the natural layout should be kept.
+    function spreadSlots(rects, areaW, areaH) {
+        if (rects.length < 2 || !WindowLayout.hasOverlap(rects, 1))
+            return null;
+        return WindowLayout.computeSlots(rects, areaW, areaH, root.windowLayoutMode, root.windowLayoutGap);
+    }
+
+    // Address -> cell-local slot for windows in overlapping regular workspaces of the current group.
+    property var workspaceLayoutSlots: {
+        if (root.windowLayoutMode === "natural")
+            return ({});
+
+        const firstWorkspace = root.workspaceGroup * root.workspacesShown + 1 + workspaceOffset;
+        const lastWorkspace = (root.workspaceGroup + 1) * root.workspacesShown + workspaceOffset;
+        const addresses = root.toplevelAddressSet();
+        const groups = {};
+        for (const addr in windowByAddress) {
+            const win = windowByAddress[addr];
+            const wsId = win?.workspace?.id;
+            if (!addresses.has(addr) || root.isSpecialWorkspace(win) || !(wsId >= firstWorkspace && wsId <= lastWorkspace))
+                continue;
+            if (!groups[wsId])
+                groups[wsId] = [];
+            groups[wsId].push(win);
+        }
+
+        const slots = {};
+        for (const wsId in groups) {
+            const wins = groups[wsId];
+            if (wins.some(win => (win?.fullscreen ?? 0) > 0))
+                continue;
+            const rects = wins.map(win => {
+                const monitor = HyprlandData.monitors.find(m => m.id === win?.monitor);
+                const ratio = WindowLayout.geometryRatio(root.monitorData, monitor);
+                const baseX = (monitor?.x ?? 0) + (monitor?.reserved?.[0] ?? 0);
+                const baseY = (monitor?.y ?? 0) + (monitor?.reserved?.[1] ?? 0);
+                return {
+                    key: win.address,
+                    x: Math.max(((win?.at?.[0] ?? 0) - baseX) * root.scale * ratio.x, 0),
+                    y: Math.max(((win?.at?.[1] ?? 0) - baseY) * root.scale * ratio.y, 0),
+                    width: Math.min((win?.size?.[0] ?? 100) * root.scale * ratio.x, root.workspaceImplicitWidth),
+                    height: Math.min((win?.size?.[1] ?? 100) * root.scale * ratio.y, root.workspaceImplicitHeight)
+                };
+            });
+            Object.assign(slots, root.spreadSlots(rects, root.workspaceImplicitWidth, root.workspaceImplicitHeight) ?? {});
+        }
+        return slots;
     }
 
     // Calculate which rows have windows or current workspace
@@ -669,6 +725,27 @@ Item {
                                 property real contentHeight: hasRenderableGeometry ? (geometryHeight * fitScale) : height
                                 property real contentOffsetX: Math.max(0, (width - contentWidth) / 2)
                                 property real contentOffsetY: Math.max(0, (height - contentHeight) / 2)
+                                // Address -> tile-local slot when this tile's windows overlap and a spread layout is enabled.
+                                property var layoutSlots: {
+                                    if (root.windowLayoutMode === "natural" || !hasRenderableGeometry)
+                                        return null;
+                                    const addresses = root.toplevelAddressSet();
+                                    const rects = [];
+                                    for (const addr in windowByAddress) {
+                                        const win = windowByAddress[addr];
+                                        if (!addresses.has(addr) || (win?.monitor ?? -1) !== (root.monitor?.id ?? -1) || root.specialWorkspaceName(win) !== specialName)
+                                            continue;
+                                        rects.push({
+                                            key: win.address,
+                                            x: ((win?.at?.[0] ?? 0) - specialGeometry.x) * fitScale,
+                                            y: ((win?.at?.[1] ?? 0) - specialGeometry.y) * fitScale,
+                                            width: (win?.size?.[0] ?? 100) * fitScale,
+                                            height: (win?.size?.[1] ?? 100) * fitScale
+                                        });
+                                    }
+                                    return root.spreadSlots(rects, width, height);
+                                }
+                                property bool spread: layoutSlots !== null
                                 implicitWidth: root.specialWorkspaceTileWidth
                                 implicitHeight: root.specialWorkspaceTileHeight
                                 radius: Appearance.rounding.screenRounding * root.scale
@@ -734,10 +811,10 @@ Item {
 
                                 Item {
                                     id: specialWorkspaceContent
-                                    x: specialWorkspaceTile.contentOffsetX
-                                    y: specialWorkspaceTile.contentOffsetY
-                                    width: specialWorkspaceTile.contentWidth
-                                    height: specialWorkspaceTile.contentHeight
+                                    x: specialWorkspaceTile.spread ? 0 : specialWorkspaceTile.contentOffsetX
+                                    y: specialWorkspaceTile.spread ? 0 : specialWorkspaceTile.contentOffsetY
+                                    width: specialWorkspaceTile.spread ? specialWorkspaceTile.width : specialWorkspaceTile.contentWidth
+                                    height: specialWorkspaceTile.spread ? specialWorkspaceTile.height : specialWorkspaceTile.contentHeight
                                     clip: true
 
                                     Repeater {
@@ -783,6 +860,7 @@ Item {
                                             recaptureToken: root.previewRecaptureToken
                                             restrictToWorkspace: false
                                             animateSize: false
+                                            layoutSlot: specialWorkspaceTile.layoutSlots?.[address] ?? null
                                             z: root.specialWindowZ(windowData)
 
                                             function moveToDragLayer() {
@@ -799,6 +877,8 @@ Item {
                                                 specialWindow.suspendPositionAnimation = true;
                                                 specialWindow.parent = homeParent;
                                                 specialWindow.z = root.specialWindowZ(windowData);
+                                                specialWindow.x = Qt.binding(() => specialWindow.initX);
+                                                specialWindow.y = Qt.binding(() => specialWindow.initY);
                                                 Qt.callLater(() => specialWindow.suspendPositionAnimation = false);
                                             }
 
@@ -839,8 +919,6 @@ Item {
                                                             Hyprland.dispatch(`movetoworkspacesilent special:${createdName}, address:${specialWindow.windowData?.address}`)
                                                         }
                                                         specialWindow.returnToHomeParent()
-                                                        specialWindow.x = specialWindow.initX
-                                                        specialWindow.y = specialWindow.initY
                                                     }
                                                     else if (targetSpecialWorkspace && targetSpecialWorkspace !== specialWorkspaceTile.specialName) {
                                                         // Idk
@@ -850,8 +928,6 @@ Item {
                                                             Hyprland.dispatch(`movetoworkspacesilent special:${targetSpecialWorkspace}, address:${specialWindow.windowData?.address}`)
                                                         }
                                                         specialWindow.returnToHomeParent()
-                                                        specialWindow.x = specialWindow.initX
-                                                        specialWindow.y = specialWindow.initY
                                                     }
                                                     else if (targetWorkspace !== -1) {
                                                         //INFO: From Special TO Normal workspace
@@ -861,13 +937,9 @@ Item {
                                                             Hyprland.dispatch(`movetoworkspacesilent ${targetWorkspace}, address:${specialWindow.windowData?.address}`)
                                                         }
                                                         specialWindow.returnToHomeParent()
-                                                        specialWindow.x = specialWindow.initX
-                                                        specialWindow.y = specialWindow.initY
                                                     }
                                                     else {
                                                         specialWindow.returnToHomeParent()
-                                                        specialWindow.x = specialWindow.initX
-                                                        specialWindow.y = specialWindow.initY
                                                     }
                                                 }
                                                 onClicked: (event) => {
@@ -1071,6 +1143,7 @@ Item {
                     availableWorkspaceHeight: root.workspaceImplicitHeight
                     widgetMonitorId: root.monitor.id
                     recaptureToken: root.previewRecaptureToken
+                    layoutSlot: root.workspaceLayoutSlots[address] ?? null
 
                     property bool atInitPosition: (initX == x && initY == y)
 
@@ -1080,15 +1153,17 @@ Item {
                     xOffset: (root.workspaceImplicitWidth + workspaceSpacing) * workspaceColIndex
                     yOffset: (root.workspaceImplicitHeight + workspaceSpacing) * visibleWorkspaceRowIndex
 
+                    function snapToInitPosition() {
+                        window.x = Qt.binding(() => window.initX)
+                        window.y = Qt.binding(() => window.initY)
+                    }
+
                     Timer {
                         id: updateWindowPosition
                         interval: Config.options.hacks.arbitraryRaceConditionDelay
                         repeat: false
                         running: false
-                        onTriggered: {
-                            window.x = Math.round(Math.max((windowData?.at[0] - (monitor?.x ?? 0) - (monitorData?.reserved?.[0] ?? 0)) * root.scale * window.widthRatio, 0) + xOffset)
-                            window.y = Math.round(Math.max((windowData?.at[1] - (monitor?.y ?? 0) - (monitorData?.reserved?.[1] ?? 0)) * root.scale * window.heightRatio, 0) + yOffset)
-                        }
+                        onTriggered: window.snapToInitPosition()
                     }
 
                     z: atInitPosition ? (root.windowZ + index) : root.windowDraggingZ
@@ -1148,8 +1223,7 @@ Item {
                                 updateWindowPosition.restart()
                             }
                             else {
-                                window.x = window.initX
-                                window.y = window.initY
+                                window.snapToInitPosition()
                             }
                         }
                         onClicked: (event) => {

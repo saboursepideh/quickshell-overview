@@ -204,6 +204,7 @@ Edit `~/.config/quickshell/overview/config.json`:
     "previewMode": "live",
     "includeInactiveMonitorPreviews": true,
     "previewRecaptureDelayMs": 60,
+    "windowLayout": "natural",
     "showSpecialWorkspaces": true,
     "specialWorkspaces": [],
     "specialWorkspaceColumns": 5,
@@ -239,6 +240,7 @@ Edit `~/.config/quickshell/overview/config.json`:
 - **Show special workspaces below grid?** Keep `showSpecialWorkspaces: true` and optionally prefill `specialWorkspaces`
 - **Lower memory use?** Set `previewMode` to `event` and `includeInactiveMonitorPreviews` to `false`
 - **Transparency / blur?** Tune `overview.effects.*` (details below)
+- **Stacked windows hard to tell apart?** Set `windowLayout` to `rows` or `grid` (details below)
 
 **Hide empty workspace rows:**
 - Set `hideEmptyRows: true` to automatically hide rows that have no windows
@@ -252,6 +254,14 @@ Edit `~/.config/quickshell/overview/config.json`:
 - When enabled, clicking outside the overview closes it, similar to menus, dropdowns, and launchers
 - The overview also closes when its Hyprland focus grab is cleared
 - Set `closeOnFocusLoss: false` if you want the previous behavior where the overview can remain open after focus changes
+
+**Spread overlapping windows (exposé layout):**
+- `windowLayout` defaults to `natural`, which places every preview at its real position on screen
+- `rows` spreads the windows of a workspace into balanced rows, picking the row count that gives the largest previews (like macOS Mission Control)
+- `grid` spreads them into equal grid cells instead
+- Only workspaces (and special workspace tiles) whose previews actually overlap, such as stacked floating windows, are rearranged; tiled workspaces keep their natural layout, as do workspaces with a fullscreen window
+- Previews keep their aspect ratio and are never enlarged beyond their natural size
+- Drag and drop works as usual; dropped windows snap into the computed layout
 
 ### Position
 
@@ -504,6 +514,7 @@ Low-memory preset:
     "previewMode": "live",
     "includeInactiveMonitorPreviews": true,
     "previewRecaptureDelayMs": 60,
+    "windowLayout": "natural",
     "showSpecialWorkspaces": true,
     "specialWorkspaces": [],
     "specialWorkspaceColumns": 5,
