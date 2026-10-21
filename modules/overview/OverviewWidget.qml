@@ -189,6 +189,7 @@ Item {
 
     readonly property bool focusLayout: `${Config.options.overview.workspaceLayout ?? "grid"}`.trim().toLowerCase() === "focus"
     readonly property real focusSize: Math.max(0.1, Math.min(1, Config.options.overview.focusSize))
+    readonly property string scrollSwitch: `${Config.options.overview.scrollSwitch ?? "continuous"}`.trim().toLowerCase()
     readonly property var emptyWorkspaceCell: ({ x: 0, y: 0, width: 0, height: 0, scale: 0 })
 
     function isWorkspaceRowShown(workspaceId) {
@@ -1150,14 +1151,42 @@ Item {
             implicitHeight: contentLayout.implicitHeight
 
             WheelHandler {
+                id: workspaceWheel
                 target: null
+                enabled: root.scrollSwitch !== "off"
                 acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                property real accumulated: 0
+                property bool locked: false
                 onWheel: event => {
                     const deltaY = event.angleDelta.y;
                     if (!deltaY)
                         return;
-                    root.stepWorkspace(deltaY > 0 ? -1 : 1);
                     event.accepted = true;
+                    if (root.scrollSwitch !== "gesture") {
+                        root.stepWorkspace(deltaY > 0 ? -1 : 1);
+                        return;
+                    }
+                    // One step per gesture: keep the lock while events (incl. touchpad inertia) keep arriving.
+                    wheelIdleTimer.restart();
+                    if (locked)
+                        return;
+                    if (Math.sign(deltaY) !== Math.sign(accumulated))
+                        accumulated = 0;
+                    accumulated += deltaY;
+                    if (Math.abs(accumulated) < 120)
+                        return;
+                    root.stepWorkspace(accumulated > 0 ? -1 : 1);
+                    accumulated = 0;
+                    locked = true;
+                }
+            }
+
+            Timer {
+                id: wheelIdleTimer
+                interval: Math.max(50, Config.options.overview.scrollCooldownMs)
+                onTriggered: {
+                    workspaceWheel.locked = false;
+                    workspaceWheel.accumulated = 0;
                 }
             }
 

@@ -17,8 +17,12 @@ Singleton {
             return matugenLoader.item;
         if (colorSource === "caelestia" && caelestiaPaletteLoaded)
             return caelestiaColors;
+        if (colorSource === "omarchy" && omarchyPaletteLoaded)
+            return omarchyColors;
         return defaultColors;
     }
+    property bool omarchyPaletteLoaded: false
+    readonly property string omarchyThemeStatePath: `${Quickshell.env("HOME")}/.local/state/omarchy/current`
     property QtObject animation
     property QtObject animationCurves
     property QtObject colors
@@ -85,6 +89,98 @@ Singleton {
         property color m3outline: defaultColors.m3outline
         property color m3outlineVariant: defaultColors.m3outlineVariant
         property color m3shadow: defaultColors.m3shadow
+    }
+
+    property QtObject omarchyColors: QtObject {
+        property bool darkmode: defaultColors.darkmode
+        property color m3primary: defaultColors.m3primary
+        property color m3onPrimary: defaultColors.m3onPrimary
+        property color m3primaryContainer: defaultColors.m3primaryContainer
+        property color m3onPrimaryContainer: defaultColors.m3onPrimaryContainer
+        property color m3secondary: defaultColors.m3secondary
+        property color m3onSecondary: defaultColors.m3onSecondary
+        property color m3secondaryContainer: defaultColors.m3secondaryContainer
+        property color m3onSecondaryContainer: defaultColors.m3onSecondaryContainer
+        property color m3background: defaultColors.m3background
+        property color m3onBackground: defaultColors.m3onBackground
+        property color m3surface: defaultColors.m3surface
+        property color m3surfaceContainerLow: defaultColors.m3surfaceContainerLow
+        property color m3surfaceContainer: defaultColors.m3surfaceContainer
+        property color m3surfaceContainerHigh: defaultColors.m3surfaceContainerHigh
+        property color m3surfaceContainerHighest: defaultColors.m3surfaceContainerHighest
+        property color m3onSurface: defaultColors.m3onSurface
+        property color m3surfaceVariant: defaultColors.m3surfaceVariant
+        property color m3onSurfaceVariant: defaultColors.m3onSurfaceVariant
+        property color m3inverseSurface: defaultColors.m3inverseSurface
+        property color m3inverseOnSurface: defaultColors.m3inverseOnSurface
+        property color m3outline: defaultColors.m3outline
+        property color m3outlineVariant: defaultColors.m3outlineVariant
+        property color m3shadow: defaultColors.m3shadow
+    }
+
+    // Maps an Omarchy theme colors.toml (flat `key = "#rrggbb"` pairs) onto the M3 roles.
+    function applyOmarchyPalette(text) {
+        const palette = ({});
+        for (const line of (text ?? "").split("\n")) {
+            const match = line.match(/^\s*([A-Za-z0-9_]+)\s*=\s*"([^"]*)"/);
+            if (match)
+                palette[match[1]] = match[2];
+        }
+
+        const background = palette.background;
+        const foreground = palette.foreground;
+        if (!background || !foreground) {
+            root.omarchyPaletteLoaded = false;
+            return;
+        }
+
+        const accent = palette.accent ?? palette.blue ?? defaultColors.m3primary;
+        const lighter = palette.lighter_background ?? ColorUtils.mix(foreground, background, 0.06);
+        const selection = palette.selection ?? ColorUtils.mix(foreground, background, 0.12);
+        const muted = palette.muted ?? ColorUtils.mix(foreground, background, 0.2);
+        const c = omarchyColors;
+
+        c.darkmode = palette.mode !== "light";
+        c.m3background = background;
+        c.m3surface = background;
+        c.m3onBackground = foreground;
+        c.m3onSurface = foreground;
+        c.m3surfaceContainerLow = lighter;
+        c.m3surfaceContainer = ColorUtils.mix(selection, lighter, 0.5);
+        c.m3surfaceContainerHigh = selection;
+        c.m3surfaceContainerHighest = muted;
+        c.m3surfaceVariant = muted;
+        c.m3onSurfaceVariant = palette.light_foreground ?? foreground;
+        c.m3outline = palette.dark_foreground ?? ColorUtils.mix(foreground, background, 0.5);
+        c.m3outlineVariant = muted;
+        c.m3primary = accent;
+        c.m3onPrimary = bestOnColor(accent);
+        c.m3primaryContainer = ColorUtils.mix(accent, background, 0.35);
+        c.m3onPrimaryContainer = foreground;
+        c.m3secondary = accent;
+        c.m3onSecondary = bestOnColor(accent);
+        c.m3secondaryContainer = selection;
+        c.m3onSecondaryContainer = foreground;
+        c.m3inverseSurface = foreground;
+        c.m3inverseOnSurface = background;
+        c.m3shadow = "#000000";
+        root.omarchyPaletteLoaded = true;
+    }
+
+    FileView {
+        id: omarchyColorsFile
+        path: root.colorSource === "omarchy" ? `${root.omarchyThemeStatePath}/theme/colors.toml` : ""
+        printErrors: false
+        onLoaded: root.applyOmarchyPalette(text())
+        onLoadFailed: root.omarchyPaletteLoaded = false
+    }
+
+    // `omarchy theme set` swaps the whole theme directory and then rewrites this file.
+    FileView {
+        path: root.colorSource === "omarchy" ? `${root.omarchyThemeStatePath}/theme.generation` : ""
+        watchChanges: true
+        printErrors: false
+        onFileChanged: omarchyColorsFile.reload()
     }
 
     function loadCaelestiaPalette() {

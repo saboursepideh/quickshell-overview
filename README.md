@@ -359,6 +359,8 @@ Interaction behavior:
 Normal workspace scrolling:
 - Scroll on the normal workspace grid to move the active workspace/highlighter across all normal workspaces
 - Scrolling wraps from the last workspace back to `1`, and from `1` back to the last
+- `overview.scrollSwitch` controls this: `continuous` (default, one workspace per wheel event), `gesture` (one workspace per swipe or wheel flick, which keeps touchpads from flying through workspaces), or `off`
+- In `gesture` mode, scrolling stays locked until the wheel/touchpad has been quiet for `overview.scrollCooldownMs` (default `250`)
 
 ### Workspace Wallpaper
 
@@ -528,6 +530,8 @@ Low-memory preset:
     "windowLayout": "natural",
     "workspaceLayout": "grid",
     "focusSize": 0.8,
+    "scrollSwitch": "continuous",
+    "scrollCooldownMs": 250,
     "showSpecialWorkspaces": true,
     "specialWorkspaces": [],
     "specialWorkspaceColumns": 5,
@@ -571,7 +575,7 @@ Low-memory preset:
 ### Theme & Colors
 
 Most theme sizing/timing options are now configurable via `config.json`:
-- `appearance.colorSource` (`default`, `matugen`, `caelestia`)
+- `appearance.colorSource` (`default`, `matugen`, `caelestia`, `omarchy`)
 - `appearance.caelestia.*` (`autoRefresh`, `refreshInterval`, `accentProfile`)
 - `appearance.rounding.*`
 - `appearance.font.*`
@@ -633,6 +637,20 @@ If you use Caelestia, set the source to `caelestia`:
 ```
 
 Overview reads the active palette from `caelestia scheme get` and refreshes it live when `autoRefresh` is enabled, so wallpaper/scheme changes can apply without restarting overview.
+
+### Omarchy
+
+On [Omarchy](https://omarchy.org/), set the source to `omarchy` to use the current theme's colors (background, foreground and accent from `~/.local/state/omarchy/current/theme/colors.toml`):
+
+```json
+{
+  "appearance": {
+    "colorSource": "omarchy"
+  }
+}
+```
+
+The palette reloads automatically after `omarchy theme set`. If the file can't be read, the default palette is used.
 
 ---
 
