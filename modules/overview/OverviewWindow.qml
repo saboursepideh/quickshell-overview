@@ -201,15 +201,22 @@ Item { // Window
             Image {
                 id: windowIcon
                 visible: root.showIcons
-                property var iconSize: {
-                    const renderedSize = Math.min(root.width, root.height);
-                    return renderedSize * (root.compactMode ? root.iconToWindowRatioCompact : root.iconToWindowRatio) / (root.monitorData?.scale ?? 1);
+                readonly property real iconRatio: root.compactMode ? root.iconToWindowRatioCompact : root.iconToWindowRatio
+                property real iconSize: Math.min(root.width, root.height) * iconRatio
+                // Rasterize once per target size (rounded up to a power of two) instead of
+                // reloading the icon on every frame while the preview animates.
+                readonly property int iconTextureSize: {
+                    const target = Math.min(root.targetWindowWidth, root.availableWorkspaceWidth, root.targetWindowHeight, root.availableWorkspaceHeight) * iconRatio * (root.monitorData?.scale ?? 1);
+                    return Math.pow(2, Math.ceil(Math.log2(Math.max(16, target))));
                 }
                 Layout.alignment: Qt.AlignHCenter
+                Layout.preferredWidth: iconSize
+                Layout.preferredHeight: iconSize
                 source: root.iconPath
-                width: iconSize
-                height: iconSize
-                sourceSize: Qt.size(Math.max(1, Math.round(iconSize)), Math.max(1, Math.round(iconSize)))
+                fillMode: Image.PreserveAspectFit
+                smooth: true
+                mipmap: true
+                sourceSize: Qt.size(iconTextureSize, iconTextureSize)
             }
         }
     }

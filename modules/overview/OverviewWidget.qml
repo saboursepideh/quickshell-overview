@@ -1150,35 +1150,54 @@ Item {
             implicitWidth: contentLayout.implicitWidth
             implicitHeight: contentLayout.implicitHeight
 
-            WheelHandler {
+            QtObject {
                 id: workspaceWheel
-                target: null
-                enabled: root.scrollSwitch !== "off"
-                acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
                 property real accumulated: 0
                 property bool locked: false
-                onWheel: event => {
-                    const deltaY = event.angleDelta.y;
-                    if (!deltaY)
+
+                function handle(event, horizontal) {
+                    const dx = event.angleDelta.x;
+                    const dy = event.angleDelta.y;
+                    // Each axis has its own handler; only the dominant axis of an event acts.
+                    if (horizontal !== (Math.abs(dx) > Math.abs(dy)))
+                        return;
+                    const delta = horizontal ? dx : dy;
+                    if (!delta)
                         return;
                     event.accepted = true;
                     if (root.scrollSwitch !== "gesture") {
-                        root.stepWorkspace(deltaY > 0 ? -1 : 1);
+                        root.stepWorkspace(delta > 0 ? -1 : 1);
                         return;
                     }
                     // One step per gesture: keep the lock while events (incl. touchpad inertia) keep arriving.
                     wheelIdleTimer.restart();
                     if (locked)
                         return;
-                    if (Math.sign(deltaY) !== Math.sign(accumulated))
+                    if (Math.sign(delta) !== Math.sign(accumulated))
                         accumulated = 0;
-                    accumulated += deltaY;
+                    accumulated += delta;
                     if (Math.abs(accumulated) < 120)
                         return;
                     root.stepWorkspace(accumulated > 0 ? -1 : 1);
                     accumulated = 0;
                     locked = true;
                 }
+            }
+
+            WheelHandler {
+                target: null
+                enabled: root.scrollSwitch !== "off"
+                orientation: Qt.Vertical
+                acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                onWheel: event => workspaceWheel.handle(event, false)
+            }
+
+            WheelHandler {
+                target: null
+                enabled: root.scrollSwitch !== "off"
+                orientation: Qt.Horizontal
+                acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                onWheel: event => workspaceWheel.handle(event, true)
             }
 
             Timer {

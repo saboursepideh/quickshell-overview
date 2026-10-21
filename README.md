@@ -357,7 +357,7 @@ Interaction behavior:
 - Restart Quickshell after changing `config.json`, otherwise the special workspace list will not refresh immediately
 
 Normal workspace scrolling:
-- Scroll on the normal workspace grid to move the active workspace/highlighter across all normal workspaces
+- Scroll (vertically or horizontally, e.g. a two-finger swipe) on the normal workspace grid to move the active workspace/highlighter across all normal workspaces
 - Scrolling wraps from the last workspace back to `1`, and from `1` back to the last
 - `overview.scrollSwitch` controls this: `continuous` (default, one workspace per wheel event), `gesture` (one workspace per swipe or wheel flick, which keeps touchpads from flying through workspaces), or `off`
 - In `gesture` mode, scrolling stays locked until the wheel/touchpad has been quiet for `overview.scrollCooldownMs` (default `250`)
