@@ -365,10 +365,7 @@ Item {
 
         const slots = {};
         for (const wsId in groups) {
-            const wins = groups[wsId];
-            if (wins.some(win => (win?.fullscreen ?? 0) > 0))
-                continue;
-            const rects = wins.map(win => {
+            const rects = groups[wsId].map(win => {
                 const monitor = HyprlandData.monitors.find(m => m.id === win?.monitor);
                 const ratio = WindowLayout.geometryRatio(root.monitorData, monitor);
                 const baseX = (monitor?.x ?? 0) + (monitor?.reserved?.[0] ?? 0);

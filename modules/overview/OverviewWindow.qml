@@ -90,6 +90,8 @@ Item { // Window
     height: Math.min(targetWindowHeight, availableWorkspaceHeight)
     opacity: (windowData?.monitor ?? -1) == widgetMonitorId ? 1 : Config.options.windowPreview.inactiveMonitorOpacity
     visible: {
+        // Spread previews never overlap, so windows behind a fullscreen/maximized one stay visible.
+        if (layoutSlot) return true;
         const thisWsId = windowData?.workspace?.id;
         const isFullscreen = (windowData?.fullscreen ?? 0) > 0;
         if (isFullscreen || thisWsId === undefined) return true;
