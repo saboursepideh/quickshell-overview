@@ -1019,8 +1019,10 @@ Item {
                                                         GlobalStates.overviewOpen = false;
                                                         if (Hyprland.usingLua) {
                                                             Hyprland.dispatch(`hl.dsp.focus({ window = 'address:${windowData.address}' })`);
+                                                            Hyprland.dispatch(`hl.dsp.window.alter_zorder({ mode = 'top', window = 'address:${windowData.address}' })`);
                                                         } else {
                                                             Hyprland.dispatch(`focuswindow address:${windowData.address}`);
+                                                            Hyprland.dispatch(`alterzorder top,address:${windowData.address}`);
                                                         }
                                                         event.accepted = true;
                                                     } else if (event.button === Qt.MiddleButton) {
@@ -1348,8 +1350,10 @@ Item {
                                 GlobalStates.overviewOpen = false
                                 if (Hyprland.usingLua) {
                                     Hyprland.dispatch(`hl.dsp.focus({ window = 'address:${windowData.address}' })`);
+                                    Hyprland.dispatch(`hl.dsp.window.alter_zorder({ mode = 'top', window = 'address:${windowData.address}' })`);
                                 } else {
                                     Hyprland.dispatch(`focuswindow address:${windowData.address}`)
+                                    Hyprland.dispatch(`alterzorder top,address:${windowData.address}`)
                                 }
                                 event.accepted = true
                             } else if (event.button === Qt.MiddleButton) {
