@@ -187,7 +187,8 @@ Item {
         return (workspaceGroup * workspacesShown) + (mappedRow * Config.options.overview.columns) + mappedCol + 1 + workspaceOffset;
     }
 
-    readonly property bool focusLayout: `${Config.options.overview.workspaceLayout ?? "grid"}`.trim().toLowerCase() === "focus"
+    readonly property string workspaceLayoutMode: `${Config.options.overview.workspaceLayout ?? "grid"}`.trim().toLowerCase()
+    readonly property bool focusLayout: workspaceLayoutMode === "focus" || workspaceLayoutMode === "top"
     readonly property real focusSize: Math.max(0.1, Math.min(1, Config.options.overview.focusSize))
     readonly property string scrollSwitch: `${Config.options.overview.scrollSwitch ?? "continuous"}`.trim().toLowerCase()
     readonly property var emptyWorkspaceCell: ({ x: 0, y: 0, width: 0, height: 0, scale: 0 })
@@ -218,6 +219,10 @@ Item {
         const specialHeight = root.showSpecialWorkspaces ? (workspaceSpacing * 2 + root.specialStripGap + root.specialStripHeight) : 0;
         const areaWidth = screenWidth - chrome - Appearance.sizes.elevationMargin * 2;
         const areaHeight = screenHeight - Config.options.position.topMargin - chrome - Appearance.sizes.elevationMargin - specialHeight;
+        if (root.workspaceLayoutMode === "top")
+            return WindowLayout.topCells(root.shownWorkspaceIds, root.effectiveActiveWorkspaceId,
+                root.monitorUsableWidth, root.monitorUsableHeight, screenWidth * root.focusSize,
+                areaWidth, areaHeight, workspaceSpacing, Config.options.overview.stripSize);
         return WindowLayout.focusCells(root.shownWorkspaceIds, root.effectiveActiveWorkspaceId,
             root.monitorUsableWidth, root.monitorUsableHeight, screenWidth * root.focusSize,
             areaWidth, areaHeight, workspaceSpacing);

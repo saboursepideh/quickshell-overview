@@ -201,3 +201,38 @@ function focusCells(ids, activeId, monW, monH, stageMaxW, areaW, areaH, gap) {
     }
     return { cells, width: stageX * 2 + stageW, height: stageH };
 }
+
+// Like focusCells, but the other workspaces sit in one row above the stage,
+// in ID order (macOS Mission Control style). stripFrac caps the row's height
+// as a fraction of areaH.
+function topCells(ids, activeId, monW, monH, stageMaxW, areaW, areaH, gap, stripFrac) {
+    const cells = {};
+    if (!(monW > 0 && monH > 0) || ids.indexOf(activeId) === -1)
+        return { cells, width: 0, height: 0 };
+
+    const others = ids.filter(id => id !== activeId).sort((a, b) => a - b);
+    let stripScale = 0;
+    if (others.length > 0) {
+        const maxH = areaH * Math.max(0.02, Math.min(0.5, stripFrac));
+        const fitW = (areaW - gap * (others.length - 1)) / others.length;
+        stripScale = Math.max(0, Math.min(maxH / monH, fitW / monW));
+    }
+    const cellW = Math.round(monW * stripScale);
+    const cellH = Math.round(monH * stripScale);
+    const stripW = others.length > 0 ? others.length * cellW + (others.length - 1) * gap : 0;
+    const stageY = cellH > 0 ? cellH + gap : 0;
+
+    const stageScale = Math.max(0.01, Math.min(Math.min(stageMaxW, areaW) / monW, (areaH - stageY) / monH));
+    const stageW = Math.round(monW * stageScale);
+    const stageH = Math.round(monH * stageScale);
+    const width = Math.max(stripW, stageW);
+
+    cells[activeId] = { x: Math.round((width - stageW) / 2), y: stageY, width: stageW, height: stageH, scale: stageScale };
+    if (cellH > 0) {
+        const left = (width - stripW) / 2;
+        others.forEach((id, i) => {
+            cells[id] = { x: Math.round(left + i * (cellW + gap)), y: 0, width: cellW, height: cellH, scale: stripScale };
+        });
+    }
+    return { cells, width, height: stageY + stageH };
+}

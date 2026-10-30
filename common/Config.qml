@@ -122,6 +122,7 @@ Singleton {
             property string windowLayout: root.readString("overview.windowLayout", "natural")
             property string workspaceLayout: root.readString("overview.workspaceLayout", "grid")
             property real focusSize: root.readReal("overview.focusSize", 0.8)
+            property real stripSize: root.readReal("overview.stripSize", 0.15)
             property string scrollSwitch: root.readString("overview.scrollSwitch", "continuous")
             property int scrollCooldownMs: root.readInt("overview.scrollCooldownMs", 250)
             property var specialWorkspaces: root.read("overview.specialWorkspaces", [])

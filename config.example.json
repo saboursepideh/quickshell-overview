@@ -59,6 +59,7 @@
     "windowLayout": "natural",
     "workspaceLayout": "grid",
     "focusSize": 0.8,
+    "stripSize": 0.15,
     "scrollSwitch": "continuous",
     "scrollCooldownMs": 250,
     "showSpecialWorkspaces": true,
