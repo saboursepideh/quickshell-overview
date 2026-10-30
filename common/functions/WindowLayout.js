@@ -202,24 +202,25 @@ function focusCells(ids, activeId, monW, monH, stageMaxW, areaW, areaH, gap) {
     return { cells, width: stageX * 2 + stageW, height: stageH };
 }
 
-// Like focusCells, but the other workspaces sit in one row above the stage,
-// in ID order (macOS Mission Control style). stripFrac caps the row's height
-// as a fraction of areaH.
+// Like focusCells, but every workspace has a slot in one row above the stage,
+// in ID order (macOS Mission Control style). The active workspace's own slot
+// stays empty and is returned as activeSlot so it can be marked. stripFrac
+// caps the row's height as a fraction of areaH.
 function topCells(ids, activeId, monW, monH, stageMaxW, areaW, areaH, gap, stripFrac) {
     const cells = {};
     if (!(monW > 0 && monH > 0) || ids.indexOf(activeId) === -1)
-        return { cells, width: 0, height: 0 };
+        return { cells, width: 0, height: 0, activeSlot: null };
 
-    const others = ids.filter(id => id !== activeId).sort((a, b) => a - b);
+    const row = ids.slice().sort((a, b) => a - b);
     let stripScale = 0;
-    if (others.length > 0) {
+    if (row.length > 1) {
         const maxH = areaH * Math.max(0.02, Math.min(0.5, stripFrac));
-        const fitW = (areaW - gap * (others.length - 1)) / others.length;
+        const fitW = (areaW - gap * (row.length - 1)) / row.length;
         stripScale = Math.max(0, Math.min(maxH / monH, fitW / monW));
     }
     const cellW = Math.round(monW * stripScale);
     const cellH = Math.round(monH * stripScale);
-    const stripW = others.length > 0 ? others.length * cellW + (others.length - 1) * gap : 0;
+    const stripW = cellH > 0 ? row.length * cellW + (row.length - 1) * gap : 0;
     const stageY = cellH > 0 ? cellH + gap : 0;
 
     const stageScale = Math.max(0.01, Math.min(Math.min(stageMaxW, areaW) / monW, (areaH - stageY) / monH));
@@ -228,11 +229,16 @@ function topCells(ids, activeId, monW, monH, stageMaxW, areaW, areaH, gap, strip
     const width = Math.max(stripW, stageW);
 
     cells[activeId] = { x: Math.round((width - stageW) / 2), y: stageY, width: stageW, height: stageH, scale: stageScale };
+    let activeSlot = null;
     if (cellH > 0) {
         const left = (width - stripW) / 2;
-        others.forEach((id, i) => {
-            cells[id] = { x: Math.round(left + i * (cellW + gap)), y: 0, width: cellW, height: cellH, scale: stripScale };
+        row.forEach((id, i) => {
+            const slot = { x: Math.round(left + i * (cellW + gap)), y: 0, width: cellW, height: cellH, scale: stripScale };
+            if (id === activeId)
+                activeSlot = slot;
+            else
+                cells[id] = slot;
         });
     }
-    return { cells, width, height: stageY + stageH };
+    return { cells, width, height: stageY + stageH, activeSlot };
 }

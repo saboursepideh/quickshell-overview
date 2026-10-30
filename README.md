@@ -271,7 +271,7 @@ Edit `~/.config/quickshell/overview/config.json`:
 **Focus layout (big current workspace):**
 - `workspaceLayout` defaults to `grid`, which shows every workspace at the same size
 - `focus` shows the current workspace large in the middle, with the other workspaces stacked in columns on either side (lower numbers left, higher numbers right)
-- `top` is the macOS Mission Control arrangement: the other workspaces sit in one row across the top in number order, with the current workspace large below; `stripSize` (default `0.15`) caps the row's height as a fraction of the available height
+- `top` is the macOS Mission Control arrangement: the other workspaces sit in one row across the top in number order, with the current workspace large below; the current workspace keeps an outlined, numbered placeholder in its spot in the row; `stripSize` (default `0.15`) caps the row's height as a fraction of the available height
 - `focusSize` (default `0.8`) is the current workspace's width as a fraction of the screen width; it shrinks automatically to fit the screen height
 - The special workspace strip and `position.topMargin` take vertical space, so set `showSpecialWorkspaces: false` and/or a smaller `topMargin` to reach the full `focusSize`
 - Switching workspaces while the overview is open (scroll, arrow keys, number keys) animates the new workspace into the middle

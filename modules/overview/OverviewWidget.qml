@@ -1382,6 +1382,33 @@ Item {
                 }
             }
 
+            Rectangle { // Active workspace's reserved slot in the top layout's strip
+                property var slot: root.focusLayoutCells.activeSlot ?? root.emptyWorkspaceCell
+                visible: slot.width > 0
+                x: slot.x
+                y: slot.y
+                width: slot.width
+                height: slot.height
+                color: ColorUtils.applyAlpha(root.activeBorderColor, 0.12)
+                radius: Appearance.rounding.screenRounding * slot.scale
+                border.width: 2
+                border.color: root.activeBorderColor
+                Behavior on x {
+                    animation: Appearance.animation.elementMoveEnter.numberAnimation.createObject(this)
+                }
+
+                StyledText {
+                    anchors.centerIn: parent
+                    text: root.effectiveActiveWorkspaceId
+                    font {
+                        pixelSize: root.workspaceNumberSize * parent.slot.scale
+                        weight: Font.DemiBold
+                        family: Appearance.font.family.expressive
+                    }
+                    color: root.activeBorderColor
+                }
+            }
+
             Rectangle { // Focused workspace indicator
                 id: focusedWorkspaceIndicator
                 property var cell: root.workspaceCell(root.effectiveActiveWorkspaceId)
